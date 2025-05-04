@@ -32,7 +32,9 @@ module.exports.loginUser = async (req, res, next) => {
     return res.status(400).json({ errors: errors.array() });
   }
   const { email, password } = req.body;
-  const user = await userModel.findOne({ email }).select("+password");
+  const user = await userModel.findOne({
+    $or: [{ email }, { fullname }, { password }]
+  }).select("+password");
   if (!user) {
     return res.status(401).json({ message: "Invalid email or password" });
   }
@@ -40,9 +42,19 @@ module.exports.loginUser = async (req, res, next) => {
   if (!isMatch) {
     return res.status(401).json({ message: "Invalid email or password" });
   }
+
   const token = user.generateAuthToken();
+  const options = {
+    httpOnly: true,
+    secure: true,
+  }
   res.cookie("token", token);
   res.status(200).json({ token, user });
+  // return res.status(200).cookie("token", token,options).cookie("user", user,options).json({
+  //   message: "User logged in successfully",
+  //   token,
+  //   user,
+  // });
 };
 module.exports.getUserProfile = async (req, res, next) => {
   res.status(200).json(req.user);
@@ -52,4 +64,13 @@ module.exports.logoutUser = async (req, res, next) => {
   const token = req.cookies.token || req.headers.authorization.split(" ")[1];
   await blacklistTokenModel.create({ token });
   res.status(200).json({ message: "User logged out successfully" });
+};
+module.exports.updateUser = async (req, res, next) => {
+  const { firstname, lastname } = req.body;
+  const userId = req.user._id;
+  const updatedUser = await userService.updateUser(userId, {
+    firstname,
+    lastname,
+  });
+  res.status(200).json({ message: "User updated successfully", updatedUser });
 };
